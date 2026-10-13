@@ -35,7 +35,146 @@
       .join("");
   }
 
-  function setComposerText(input, value) {
+  const TEXT_LAND_CHECK_MS = 60;
+  const TEXT_LAND_PROBE_LENGTH = 40;
+
+  function selectAllContent(input) {
+    try {
+      const range = document.createRange();
+      range.selectNodeContents(input);
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+    } catch {
+      // Ignore; the strategies below will still target the caret.
+    }
+  }
+
+  // Rich-text editors (ProseMirror, Lexical, ...) put each line of the
+  // prompt in its own block element, and reading textContent back
+  // concatenates those blocks with no separator at all - "line one" and
+  // "line two" become "line onel ine two" with none of the original
+  // whitespace. Comparing against a probe that still has its real
+  // newlines/spaces in it then never matches even when the text is
+  // genuinely sitting right there in the DOM, so strip all whitespace
+  // from both sides before comparing.
+  function stripWhitespace(value) {
+    return value.replace(/\s+/g, "");
+  }
+
+  // Did `value` actually reach the DOM? Used to tell a strategy that
+  // silently no-opped (a framework swallowed the event) from one that
+  // genuinely worked, instead of assuming success either way.
+  function textLanded(input, value) {
+    const trimmed = value.trim();
+    if (!trimmed) return true;
+    const text = input.textContent || "";
+    if (!text.trim()) return false;
+    const probe = trimmed.slice(0, Math.min(TEXT_LAND_PROBE_LENGTH, trimmed.length));
+    return stripWhitespace(text).includes(stripWhitespace(probe));
+  }
+
+  function tryPasteEvent(input, value) {
+    selectAllContent(input);
+    try {
+      const clipboardData = new DataTransfer();
+      clipboardData.setData("text/plain", value);
+      input.dispatchEvent(
+        new ClipboardEvent("paste", {
+          clipboardData,
+          bubbles: true,
+          cancelable: true,
+        })
+      );
+    } catch {
+      // Try the next strategy.
+    }
+  }
+
+  function tryBeforeInputEvent(input, value) {
+    selectAllContent(input);
+    try {
+      input.dispatchEvent(
+        new InputEvent("beforeinput", {
+          bubbles: true,
+          cancelable: true,
+          composed: true,
+          inputType: "insertText",
+          data: value,
+        })
+      );
+    } catch {
+      // Try the next strategy.
+    }
+  }
+
+  function tryExecCommand(input, value) {
+    selectAllContent(input);
+    try {
+      document.execCommand("insertText", false, value);
+    } catch {
+      // Try the next strategy.
+    }
+  }
+
+  function trySetInnerHtml(input, value) {
+    input.innerHTML = toParagraphHtml(value);
+  }
+
+  function describeElement(element) {
+    if (!element) return "none";
+    const id = element.id ? `#${element.id}` : "";
+    const classes = element.className
+      ? `.${String(element.className).trim().split(/\s+/).join(".")}`
+      : "";
+    return `<${element.tagName?.toLowerCase() || "?"}${id}${classes}>`;
+  }
+
+  // ChatGPT's composer (and Gemini's/DeepSeek's) is backed by a rich-text
+  // editor (e.g. Lexical) that keeps its own internal model instead of
+  // reading the DOM. Overwriting innerHTML directly never reaches that
+  // model: the editor still thinks it's empty, so the send button stays
+  // disabled and Enter submits nothing - the question never actually
+  // goes anywhere, with no visible error. Try progressively more
+  // native-looking ways of editing the field, and actually check the
+  // DOM after each one instead of assuming it worked.
+  async function insertIntoContentEditable(input, value) {
+    const strategies = [
+      tryPasteEvent,
+      tryBeforeInputEvent,
+      tryExecCommand,
+      trySetInnerHtml,
+    ];
+
+    console.log(
+      LOG_PREFIX,
+      "composer element:",
+      describeElement(input),
+      "focused:",
+      document.activeElement === input
+    );
+
+    for (const strategy of strategies) {
+      strategy(input, value);
+      await wait.delay(TEXT_LAND_CHECK_MS);
+      const landed = textLanded(input, value);
+      console.log(
+        LOG_PREFIX,
+        `${strategy.name} ->`,
+        landed ? "landed" : "did not land",
+        "| textContent now:",
+        JSON.stringify((input.textContent || "").slice(0, 80))
+      );
+      if (landed) {
+        dom.dispatchInputEvents(input);
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  async function setComposerText(input, value) {
     input.focus();
 
     if (
@@ -47,9 +186,7 @@
     }
 
     if (input.isContentEditable) {
-      input.innerHTML = toParagraphHtml(value);
-      dom.dispatchInputEvents(input);
-      return true;
+      return insertIntoContentEditable(input, value);
     }
 
     return false;
@@ -125,7 +262,7 @@
           getMessageId
         );
 
-        if (!setComposerText(input, prompt)) {
+        if (!(await setComposerText(input, prompt))) {
           throw new Error(`Could not type into the ${name} message box.`);
         }
 

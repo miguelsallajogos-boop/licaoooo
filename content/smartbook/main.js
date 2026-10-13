@@ -198,8 +198,7 @@
     }
 
     if (currentSettings.pauseBeforeSubmit) {
-      await run.waitForUser(isDone);
-      return;
+      await run.delay(5000);
     }
 
     await submit(run, result.lines, isDone);

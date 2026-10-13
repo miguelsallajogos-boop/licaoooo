@@ -12,8 +12,25 @@
     "https://chat.deepseek.com/*",
     "https://api.github.com/*"
   ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "auto-mcgraw@googlyblox.github.io",
+      "strict_min_version": "109.0"
+    }
+  },
   "background": {
-    "service_worker": "background/service-worker.js"
+    "scripts": [
+      "shared/namespace.js",
+      "shared/assistants.js",
+      "shared/settings.js",
+      "shared/messaging.js",
+      "shared/wait.js",
+      "background/tabs.js",
+      "background/prompt.js",
+      "background/relay.js",
+      "background/double-credit.js",
+      "background/service-worker.js"
+    ]
   },
   "icons": {
     "48": "assets/icon.png"

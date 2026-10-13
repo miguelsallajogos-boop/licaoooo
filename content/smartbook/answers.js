@@ -44,11 +44,19 @@
       allowMultiple
     );
 
+    if (indices.length === 0) return false;
+    // "Select all that apply" questions need every one of the AI's
+    // answers to land on a distinct choice. Checking only some of them
+    // submits a partial, wrong answer every time, which SmartBook marks
+    // incorrect and re-serves - looping forever instead of pausing for
+    // a manual fix.
+    if (allowMultiple && indices.length < values.length) return false;
+
     indices.forEach((index) => {
       const { input } = choices[index];
       if (!input.checked) input.click();
     });
-    return indices.length > 0;
+    return true;
   }
 
   function selectText(container, values) {

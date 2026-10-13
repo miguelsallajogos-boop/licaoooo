@@ -1,15 +1,6 @@
-importScripts(
-  "../shared/namespace.js",
-  "../shared/assistants.js",
-  "../shared/settings.js",
-  "../shared/messaging.js",
-  "../shared/wait.js",
-  "tabs.js",
-  "prompt.js",
-  "relay.js",
-  "double-credit.js"
-);
-
+// Loaded as the last entry of background.scripts in manifest.json
+// alongside its dependencies, so they're already on AutoMcGraw by the
+// time this runs.
 (() => {
   const { MessageType, messaging, relay, doubleCredit } = AutoMcGraw;
 

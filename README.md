@@ -24,11 +24,14 @@
 
 ## Installation
 
+This extension targets **Firefox only**.
+
 1. Download the latest zip from the [releases page](https://github.com/GooglyBlox/auto-mcgraw/releases)
 2. Extract the zip file to a folder
-3. Open Chrome and go to `chrome://extensions/`
-4. Enable "Developer mode" in the top right
-5. Click "Load unpacked" and select the extracted folder
+3. Open Firefox and go to `about:debugging#/runtime/this-firefox`
+4. Click "Load Temporary Add-on..." and select `manifest.json` inside the extracted folder
+
+Note: temporary add-ons loaded this way are removed when Firefox restarts, so you'll need to reload it each session (or package/sign it with `web-ext` for a permanent install).
 
 ## Usage
 
@@ -57,7 +60,7 @@ Click the settings icon ( <img src="assets/settings-icon.svg" alt="Settings Icon
 - Choose between **ChatGPT**, **Gemini**, or **DeepSeek** for answering questions, and see which of them has a tab open
 - **Double Credit Mode:** answer each question in a duplicate tab as well, to earn double points
 - **Randomize Confidence:** pick High, Medium or Low confidence at random instead of always High
-- **Pause Before Submit:** fill in each answer, then wait for you to submit it and move on
+- **Pause Before Submit:** fill in each answer, then pause 5 seconds before submitting it
 - Check for new releases
 
 The extension will automatically use your selected AI model for all future automation sessions.
