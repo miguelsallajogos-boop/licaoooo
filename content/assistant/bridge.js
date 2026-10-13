@@ -50,16 +50,28 @@
     }
   }
 
+  // Rich-text editors (ProseMirror, Lexical, ...) put each line of the
+  // prompt in its own block element, and reading textContent back
+  // concatenates those blocks with no separator at all - "line one" and
+  // "line two" become "line onel ine two" with none of the original
+  // whitespace. Comparing against a probe that still has its real
+  // newlines/spaces in it then never matches even when the text is
+  // genuinely sitting right there in the DOM, so strip all whitespace
+  // from both sides before comparing.
+  function stripWhitespace(value) {
+    return value.replace(/\s+/g, "");
+  }
+
   // Did `value` actually reach the DOM? Used to tell a strategy that
   // silently no-opped (a framework swallowed the event) from one that
   // genuinely worked, instead of assuming success either way.
   function textLanded(input, value) {
     const trimmed = value.trim();
     if (!trimmed) return true;
-    const text = (input.textContent || "").trim();
-    if (!text) return false;
+    const text = input.textContent || "";
+    if (!text.trim()) return false;
     const probe = trimmed.slice(0, Math.min(TEXT_LAND_PROBE_LENGTH, trimmed.length));
-    return text.includes(probe);
+    return stripWhitespace(text).includes(stripWhitespace(probe));
   }
 
   function tryPasteEvent(input, value) {
