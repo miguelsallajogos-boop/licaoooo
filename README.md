@@ -60,7 +60,7 @@ Click the settings icon ( <img src="assets/settings-icon.svg" alt="Settings Icon
 - Choose between **ChatGPT**, **Gemini**, or **DeepSeek** for answering questions, and see which of them has a tab open
 - **Double Credit Mode:** answer each question in a duplicate tab as well, to earn double points
 - **Randomize Confidence:** pick High, Medium or Low confidence at random instead of always High
-- **Pause Before Submit:** fill in each answer, then wait for you to submit it and move on
+- **Pause Before Submit:** fill in each answer, then pause 5 seconds before submitting it
 - Check for new releases
 
 The extension will automatically use your selected AI model for all future automation sessions.
