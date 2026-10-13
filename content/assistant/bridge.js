@@ -109,6 +109,15 @@
     input.innerHTML = toParagraphHtml(value);
   }
 
+  function describeElement(element) {
+    if (!element) return "none";
+    const id = element.id ? `#${element.id}` : "";
+    const classes = element.className
+      ? `.${String(element.className).trim().split(/\s+/).join(".")}`
+      : "";
+    return `<${element.tagName?.toLowerCase() || "?"}${id}${classes}>`;
+  }
+
   // ChatGPT's composer (and Gemini's/DeepSeek's) is backed by a rich-text
   // editor (e.g. Lexical) that keeps its own internal model instead of
   // reading the DOM. Overwriting innerHTML directly never reaches that
@@ -125,10 +134,26 @@
       trySetInnerHtml,
     ];
 
+    console.log(
+      LOG_PREFIX,
+      "composer element:",
+      describeElement(input),
+      "focused:",
+      document.activeElement === input
+    );
+
     for (const strategy of strategies) {
       strategy(input, value);
       await wait.delay(TEXT_LAND_CHECK_MS);
-      if (textLanded(input, value)) {
+      const landed = textLanded(input, value);
+      console.log(
+        LOG_PREFIX,
+        `${strategy.name} ->`,
+        landed ? "landed" : "did not land",
+        "| textContent now:",
+        JSON.stringify((input.textContent || "").slice(0, 80))
+      );
+      if (landed) {
         dom.dispatchInputEvents(input);
         return true;
       }
