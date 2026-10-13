@@ -35,6 +35,54 @@
       .join("");
   }
 
+  function selectAllContent(input) {
+    try {
+      const range = document.createRange();
+      range.selectNodeContents(input);
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+    } catch {
+      // Ignore; the paste/insertText below will still target the caret.
+    }
+  }
+
+  // ChatGPT's composer (and Gemini's/DeepSeek's) is backed by a rich-text
+  // editor (e.g. Lexical) that keeps its own internal model instead of
+  // reading the DOM. Overwriting innerHTML directly never reaches that
+  // model, so the editor still thinks it's empty: the send button stays
+  // disabled and Enter submits nothing. Dispatching a real "paste" event
+  // routes through the editor's own paste handler, which does update its
+  // model. If nothing intercepts that (defaultPrevented stays false),
+  // fall back to execCommand, and finally to raw innerHTML.
+  function pasteContentEditableText(input, value) {
+    selectAllContent(input);
+
+    try {
+      const clipboardData = new DataTransfer();
+      clipboardData.setData("text/plain", value);
+      const pasteEvent = new ClipboardEvent("paste", {
+        clipboardData,
+        bubbles: true,
+        cancelable: true,
+      });
+      const notCancelled = input.dispatchEvent(pasteEvent);
+      if (!notCancelled) return true;
+    } catch {
+      // Fall through to the next strategy.
+    }
+
+    try {
+      if (document.execCommand("insertText", false, value)) return true;
+    } catch {
+      // Fall through to the final strategy.
+    }
+
+    input.innerHTML = toParagraphHtml(value);
+    dom.dispatchInputEvents(input);
+    return true;
+  }
+
   function setComposerText(input, value) {
     input.focus();
 
@@ -47,7 +95,7 @@
     }
 
     if (input.isContentEditable) {
-      input.innerHTML = toParagraphHtml(value);
+      pasteContentEditableText(input, value);
       dom.dispatchInputEvents(input);
       return true;
     }

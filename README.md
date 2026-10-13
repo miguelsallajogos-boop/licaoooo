@@ -24,11 +24,24 @@
 
 ## Installation
 
+### Chrome (and other Chromium browsers)
+
 1. Download the latest zip from the [releases page](https://github.com/GooglyBlox/auto-mcgraw/releases)
 2. Extract the zip file to a folder
 3. Open Chrome and go to `chrome://extensions/`
 4. Enable "Developer mode" in the top right
 5. Click "Load unpacked" and select the extracted folder
+
+### Firefox
+
+Firefox needs its own manifest file (Firefox doesn't support real MV3 service workers the way Chrome does), so a separate `manifest.firefox.json` is included in this repo for that purpose.
+
+1. Download and extract the zip as above
+2. In the extracted folder, delete `manifest.json` and rename `manifest.firefox.json` to `manifest.json`
+3. Open Firefox and go to `about:debugging#/runtime/this-firefox`
+4. Click "Load Temporary Add-on..." and select any file inside the extracted folder (e.g. `manifest.json`)
+
+Note: temporary add-ons loaded this way are removed when Firefox restarts, so you'll need to reload it each session (or package/sign it with `web-ext` for a permanent install).
 
 ## Usage
 

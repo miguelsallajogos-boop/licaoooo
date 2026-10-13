@@ -1,14 +1,20 @@
-importScripts(
-  "../shared/namespace.js",
-  "../shared/assistants.js",
-  "../shared/settings.js",
-  "../shared/messaging.js",
-  "../shared/wait.js",
-  "tabs.js",
-  "prompt.js",
-  "relay.js",
-  "double-credit.js"
-);
+// Chrome loads this file as the actual MV3 service worker, where
+// importScripts() is available. Firefox instead loads it as the last
+// entry of background.scripts (manifest.firefox.json) alongside its
+// dependencies, so importScripts() doesn't exist there and would throw.
+if (typeof importScripts === "function") {
+  importScripts(
+    "../shared/namespace.js",
+    "../shared/assistants.js",
+    "../shared/settings.js",
+    "../shared/messaging.js",
+    "../shared/wait.js",
+    "tabs.js",
+    "prompt.js",
+    "relay.js",
+    "double-credit.js"
+  );
+}
 
 (() => {
   const { MessageType, messaging, relay, doubleCredit } = AutoMcGraw;
