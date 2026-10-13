@@ -35,6 +35,9 @@
       .join("");
   }
 
+  const TEXT_LAND_CHECK_MS = 60;
+  const TEXT_LAND_PROBE_LENGTH = 40;
+
   function selectAllContent(input) {
     try {
       const range = document.createRange();
@@ -43,47 +46,98 @@
       selection.removeAllRanges();
       selection.addRange(range);
     } catch {
-      // Ignore; the paste/insertText below will still target the caret.
+      // Ignore; the strategies below will still target the caret.
     }
+  }
+
+  // Did `value` actually reach the DOM? Used to tell a strategy that
+  // silently no-opped (a framework swallowed the event) from one that
+  // genuinely worked, instead of assuming success either way.
+  function textLanded(input, value) {
+    const trimmed = value.trim();
+    if (!trimmed) return true;
+    const text = (input.textContent || "").trim();
+    if (!text) return false;
+    const probe = trimmed.slice(0, Math.min(TEXT_LAND_PROBE_LENGTH, trimmed.length));
+    return text.includes(probe);
+  }
+
+  function tryPasteEvent(input, value) {
+    selectAllContent(input);
+    try {
+      const clipboardData = new DataTransfer();
+      clipboardData.setData("text/plain", value);
+      input.dispatchEvent(
+        new ClipboardEvent("paste", {
+          clipboardData,
+          bubbles: true,
+          cancelable: true,
+        })
+      );
+    } catch {
+      // Try the next strategy.
+    }
+  }
+
+  function tryBeforeInputEvent(input, value) {
+    selectAllContent(input);
+    try {
+      input.dispatchEvent(
+        new InputEvent("beforeinput", {
+          bubbles: true,
+          cancelable: true,
+          composed: true,
+          inputType: "insertText",
+          data: value,
+        })
+      );
+    } catch {
+      // Try the next strategy.
+    }
+  }
+
+  function tryExecCommand(input, value) {
+    selectAllContent(input);
+    try {
+      document.execCommand("insertText", false, value);
+    } catch {
+      // Try the next strategy.
+    }
+  }
+
+  function trySetInnerHtml(input, value) {
+    input.innerHTML = toParagraphHtml(value);
   }
 
   // ChatGPT's composer (and Gemini's/DeepSeek's) is backed by a rich-text
   // editor (e.g. Lexical) that keeps its own internal model instead of
   // reading the DOM. Overwriting innerHTML directly never reaches that
-  // model, so the editor still thinks it's empty: the send button stays
-  // disabled and Enter submits nothing. Dispatching a real "paste" event
-  // routes through the editor's own paste handler, which does update its
-  // model. If nothing intercepts that (defaultPrevented stays false),
-  // fall back to execCommand, and finally to raw innerHTML.
-  function pasteContentEditableText(input, value) {
-    selectAllContent(input);
+  // model: the editor still thinks it's empty, so the send button stays
+  // disabled and Enter submits nothing - the question never actually
+  // goes anywhere, with no visible error. Try progressively more
+  // native-looking ways of editing the field, and actually check the
+  // DOM after each one instead of assuming it worked.
+  async function insertIntoContentEditable(input, value) {
+    const strategies = [
+      tryPasteEvent,
+      tryBeforeInputEvent,
+      tryExecCommand,
+      trySetInnerHtml,
+    ];
 
-    try {
-      const clipboardData = new DataTransfer();
-      clipboardData.setData("text/plain", value);
-      const pasteEvent = new ClipboardEvent("paste", {
-        clipboardData,
-        bubbles: true,
-        cancelable: true,
-      });
-      const notCancelled = input.dispatchEvent(pasteEvent);
-      if (!notCancelled) return true;
-    } catch {
-      // Fall through to the next strategy.
+    for (const strategy of strategies) {
+      strategy(input, value);
+      await wait.delay(TEXT_LAND_CHECK_MS);
+      if (textLanded(input, value)) {
+        dom.dispatchInputEvents(input);
+        return true;
+      }
     }
 
-    try {
-      if (document.execCommand("insertText", false, value)) return true;
-    } catch {
-      // Fall through to the final strategy.
-    }
-
-    input.innerHTML = toParagraphHtml(value);
-    dom.dispatchInputEvents(input);
-    return true;
+    return false;
   }
 
-  function setComposerText(input, value) {
+  async function setComposerText(input, value) {
     input.focus();
 
     if (
@@ -95,9 +149,7 @@
     }
 
     if (input.isContentEditable) {
-      pasteContentEditableText(input, value);
-      dom.dispatchInputEvents(input);
-      return true;
+      return insertIntoContentEditable(input, value);
     }
 
     return false;
@@ -173,7 +225,7 @@
           getMessageId
         );
 
-        if (!setComposerText(input, prompt)) {
+        if (!(await setComposerText(input, prompt))) {
           throw new Error(`Could not type into the ${name} message box.`);
         }
 
